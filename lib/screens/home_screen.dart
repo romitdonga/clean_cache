@@ -130,18 +130,28 @@ class HomeScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Found ${projects.length} Flutter ${projects.length == 1 ? 'project' : 'projects'}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                flex: 1,
+                child: Text(
+                  'Found ${projects.length} Flutter ${projects.length == 1 ? 'project' : 'projects'}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Text(
-                'Total cleanable size: ${provider.totalCleanableSize}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 1,
+                child: Text(
+                  'Total cleanable size: ${provider.totalCleanableSize}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.end,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
