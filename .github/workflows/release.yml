@@ -11,94 +11,81 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            output_path: build/windows/x64/runner/Release
+            artifact_name: flutter_space_saver-windows
+          - os: macos-latest
+            output_path: build/macos/Build/Products/Release
+            artifact_name: flutter_space_saver-macos
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+          flutter-version: '3.19.0'
+          cache: true
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build
+      - name: Enable desktop
         run: |
-          if [ "${{ runner.os }}" == "Linux" ]; then
-            flutter build linux --release
-          elif [ "${{ runner.os }}" == "Windows" ]; then
-            flutter build windows --release
-          elif [ "${{ runner.os }}" == "macOS" ]; then
-            flutter build macos --release
-          fi
-      
+          flutter config --enable-windows-desktop
+          flutter config --enable-macos-desktop
+
+      - name: Build Windows
+        if: matrix.os == 'windows-latest'
+        run: flutter build windows --release
+
+      - name: Build macOS
+        if: matrix.os == 'macos-latest'
+        run: flutter build macos --release
+
+      - name: Package Windows app
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "${{ matrix.output_path }}/*" -DestinationPath "${{ matrix.artifact_name }}.zip"
+
       - name: Package macOS app
         if: matrix.os == 'macos-latest'
         run: |
-          cd build/macos/Build/Products/Release/
-          zip -r ../../../../flutter_space_saver-macos.zip *.app
-          cd ../../../../
+          cd "${{ matrix.output_path }}"
+          zip -r "../../../../${{ matrix.artifact_name }}.zip" *.app
 
-      - name: Archive Release
-        uses: actions/upload-artifact@v2
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
         with:
-          name: ${{ runner.os }}-build
-          path: |
-            build/linux/x64/release/bundle/
-            build/windows/runner/Release/
-            flutter_space_saver-macos.zip
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}.zip
+          retention-days: 5
 
   release:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           path: artifacts
 
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          files: |
+            artifacts/flutter_space_saver-windows/flutter_space_saver-windows.zip
+            artifacts/flutter_space_saver-macos/flutter_space_saver-macos.zip
           draft: false
           prerelease: false
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/windows-latest-build/Release.zip
-          asset_name: flutter_space_saver-windows.zip
-          asset_content_type: application/zip
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/macos-latest-build/flutter_space_saver-macos.zip
-          asset_name: flutter_space_saver-macos.zip
-          asset_content_type: application/zip
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/ubuntu-latest-build/bundle.zip
-          asset_name: flutter_space_saver-linux.zip
-          asset_content_type: application/zip
+          generate_release_notes: true
 
